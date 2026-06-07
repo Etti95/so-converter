@@ -105,45 +105,17 @@ nav a:focus-visible {
 }
 
 .hero {
-  display: grid;
-  grid-template-columns: minmax(0, 0.86fr) minmax(320px, 1.14fr);
-  align-items: center;
-  min-height: calc(100vh - 74px);
-  padding: clamp(28px, 5vw, 72px) clamp(18px, 4vw, 56px) clamp(42px, 6vw, 88px);
-  overflow: hidden;
+  padding: clamp(48px, 8vw, 96px) clamp(18px, 4vw, 56px);
   background:
-    linear-gradient(120deg, rgba(11, 65, 82, 0.96), rgba(16, 24, 40, 0.9)),
-    radial-gradient(circle at 20% 20%, rgba(17, 198, 217, 0.18), transparent 42%);
+    linear-gradient(135deg, rgba(11, 65, 82, 0.96), rgba(16, 24, 40, 0.92)),
+    radial-gradient(circle at 30% 40%, rgba(17, 198, 217, 0.15), transparent 50%);
   color: #ffffff;
-}
-
-.hero-media {
-  position: relative;
-  min-height: 440px;
-  display: grid;
-  place-items: center;
-}
-
-.hero-media::before {
-  content: "";
-  position: absolute;
-  inset: 9%;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  border-radius: 50%;
-}
-
-.hero-media img {
-  width: min(62vw, 450px);
-  max-width: 100%;
-  aspect-ratio: 1;
-  object-fit: cover;
-  border-radius: 50%;
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.38);
+  text-align: center;
 }
 
 .hero-content {
-  max-width: 700px;
-  padding: clamp(8px, 2vw, 24px) 0;
+  max-width: 720px;
+  margin: 0 auto;
 }
 
 .eyebrow {
@@ -164,8 +136,8 @@ p {
 
 h1 {
   margin-bottom: 18px;
-  font-size: clamp(2.4rem, 5vw, 5rem);
-  line-height: 0.98;
+  font-size: clamp(2.2rem, 5vw, 4rem);
+  line-height: 1.04;
   letter-spacing: 0;
 }
 
@@ -183,10 +155,17 @@ h3 {
 
 .hero p {
   color: rgba(255, 255, 255, 0.82);
-  font-size: clamp(1rem, 1.6vw, 1.2rem);
+  font-size: clamp(1rem, 1.6vw, 1.15rem);
 }
 
-.hero-actions,
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+}
+
 .action-row {
   display: flex;
   flex-wrap: wrap;
@@ -238,6 +217,12 @@ h3 {
   border-color: var(--line);
 }
 
+.hero .button.secondary {
+  color: #ffffff;
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
 .button.ghost {
   color: var(--brand-dark);
   background: transparent;
@@ -274,8 +259,8 @@ h3 {
 }
 
 .workspace,
-.pricing,
-.details {
+.details,
+.use-cases {
   padding: clamp(48px, 7vw, 92px) clamp(18px, 4vw, 56px);
 }
 
@@ -297,16 +282,11 @@ h3 {
 }
 
 .upload-panel,
-.results-panel,
-.price-card {
+.results-panel {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--panel);
   box-shadow: var(--shadow);
-}
-
-.upload-panel,
-.results-panel {
   padding: clamp(18px, 3vw, 28px);
 }
 
@@ -314,7 +294,7 @@ h3 {
   display: grid;
   place-items: center;
   gap: 8px;
-  min-height: 260px;
+  min-height: 220px;
   padding: 28px;
   border: 2px dashed #b7c8d0;
   border-radius: 8px;
@@ -340,8 +320,8 @@ h3 {
 .drop-icon {
   display: grid;
   place-items: center;
-  width: 70px;
-  height: 70px;
+  width: 60px;
+  height: 60px;
   border-radius: 8px;
   color: #052a35;
   background: linear-gradient(135deg, var(--brand), #8bf0df);
@@ -482,62 +462,34 @@ h3 {
   padding-left: 18px;
 }
 
-.pricing {
+.use-cases {
   background: var(--soft);
 }
 
-.pricing-grid {
+.use-cases-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 22px;
-  max-width: 980px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--line);
 }
 
-.price-card {
-  display: grid;
-  gap: 14px;
-  align-content: start;
-  padding: clamp(22px, 3vw, 32px);
-  box-shadow: none;
+.use-cases-grid article {
+  padding: 24px;
+  background: #ffffff;
 }
 
-.price-card.featured {
-  border-color: rgba(17, 198, 217, 0.75);
-  box-shadow: 0 20px 54px rgba(17, 198, 217, 0.16);
+.use-cases-grid strong,
+.use-cases-grid span {
+  display: block;
 }
 
-.price-label {
-  width: fit-content;
-  padding: 5px 10px;
-  border-radius: 999px;
-  color: var(--brand-dark);
-  background: #dff9fb;
-  font-size: 0.78rem;
-  font-weight: 900;
-}
-
-.price-card h3 {
-  margin: 0;
-  font-size: clamp(2.2rem, 4vw, 3.3rem);
-  letter-spacing: 0;
-}
-
-.price-card h3 small {
+.use-cases-grid span {
+  margin-top: 8px;
   color: var(--muted);
-  font-size: 1rem;
-}
-
-.price-card p,
-.price-card li {
-  color: var(--muted);
-}
-
-.price-card ul {
-  display: grid;
-  gap: 8px;
-  min-height: 94px;
-  margin: 0;
-  padding-left: 18px;
+  font-size: 0.95rem;
 }
 
 .sheet-list {
@@ -551,7 +503,7 @@ h3 {
 }
 
 .sheet-list div {
-  min-height: 150px;
+  min-height: 140px;
   padding: 22px;
   background: #ffffff;
 }
@@ -564,6 +516,23 @@ h3 {
 .sheet-list span {
   margin-top: 8px;
   color: var(--muted);
+}
+
+.beta-section {
+  padding: clamp(48px, 7vw, 80px) clamp(18px, 4vw, 56px);
+  background:
+    linear-gradient(135deg, rgba(11, 65, 82, 0.96), rgba(16, 24, 40, 0.92));
+  color: #ffffff;
+  text-align: center;
+}
+
+.beta-section .section-heading {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.beta-section .section-heading p:not(.eyebrow) {
+  color: rgba(255, 255, 255, 0.75);
 }
 
 .site-footer {
@@ -582,25 +551,14 @@ h3 {
 }
 
 @media (max-width: 920px) {
-  .hero,
   .converter-layout,
   .trust-band,
-  .pricing-grid,
   .sheet-list {
     grid-template-columns: 1fr;
   }
 
-  .hero {
-    min-height: auto;
-  }
-
-  .hero-media {
-    min-height: 280px;
-    order: -1;
-  }
-
-  .hero-media img {
-    width: min(72vw, 320px);
+  .use-cases-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .trust-band div {
@@ -620,11 +578,15 @@ h3 {
   }
 
   h1 {
-    font-size: clamp(2.2rem, 13vw, 3.5rem);
+    font-size: clamp(2rem, 10vw, 3rem);
   }
 
   .options-grid,
   .metric-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .use-cases-grid {
     grid-template-columns: 1fr;
   }
 

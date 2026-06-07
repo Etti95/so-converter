@@ -4,7 +4,7 @@ const CP437_HIGH =
   "ÇüéâäàåçêëèïîìÄÅÉæÆôöòûùÿÖÜ¢£¥₧ƒ" +
   "áíóúñÑªº¿⌐¬½¼¡«»░▒▓│┤╡╢╖╕╣║╗╝╜╛┐" +
   "└┴┬├─┼╞╟╚╔╩╦╠═╬╧╨╤╥╙╘╒╓╫╪┘┌█▄▌▐▀" +
-  "αßΓπΣσµτΦΘΩδ∞φε∩≡±≥≤⌠⌡÷≈°∙·√ⁿ²■ ";
+  "αßΓπΣσµτΦΘΩδ∞φε∩≡±≥≤⌠⌡÷≈°∙·√ⁿ²■ ";
 
 const state = {
   file: null,
@@ -48,7 +48,7 @@ dropZone.addEventListener("drop", (event) => {
   if (file) {
     state.file = file;
     fileInput.files = event.dataTransfer.files;
-    setStatus("idle", file.name, "Filen är vald. Skapa workbook när du är redo.");
+    setStatus("idle", file.name, "Filen är vald. Skapa arbetsbok när du är redo.");
   }
 });
 
@@ -56,7 +56,7 @@ fileInput.addEventListener("change", () => {
   const [file] = fileInput.files;
   state.file = file || null;
   if (file) {
-    setStatus("idle", file.name, "Filen är vald. Skapa workbook när du är redo.");
+    setStatus("idle", file.name, "Filen är vald. Skapa arbetsbok när du är redo.");
   }
 });
 
@@ -82,30 +82,31 @@ form.addEventListener("submit", async (event) => {
   submitButton.textContent = "Skapar…";
 
   try {
-    setStatus("idle", "Läser fil", "Tolkar SIE-rader och skapar Excel-struktur.");
+    setStatus("idle", "Läser fil", "Tolkar SIE-rader och skapar arbetsbok.");
     const bytes = new Uint8Array(await file.arrayBuffer());
     const text = decodeSie(bytes);
     const parsed = parseSie(text);
-    const filtered = applyPeriodFilter(parsed, periodFilter.value);
+    const validated = validateVouchers(parsed);
+    const filtered = applyPeriodFilter(validated, periodFilter.value);
     const workbook = buildWorkbook(filtered, {
       sourceFile: file.name,
       includeRaw: includeRaw.checked,
       includeEmpty: includeEmpty.checked
     });
-    const blob = createXlsx(workbook);
+    const blob = await createXlsx(workbook);
     const safeName = sanitizeFileName(workbookName.value || file.name.replace(/\.[^.]+$/, ""));
     revokeLastUrl();
     state.lastUrl = URL.createObjectURL(blob);
     downloadLink.href = state.lastUrl;
     downloadLink.download = `${safeName}.xlsx`;
     downloadSlot.hidden = false;
-    downloadNote.textContent = `${formatNumber(blob.size)} bytes skapade lokalt i webbläsaren.`;
+    downloadNote.textContent = `${formatNumber(blob.size)} byte skapade lokalt i webbläsaren.`;
     updateMetrics(filtered);
     renderWarnings(filtered.warnings);
     setStatus(
       filtered.warnings.length ? "warning" : "success",
-      "Workbook skapad",
-      `${formatNumber(filtered.transactions.length)} transaktioner är redo för nedladdning.`
+      "Arbetsbok skapad",
+      `${formatNumber(filtered.transactions.length)} transaktioner redo för nedladdning.`
     );
   } catch (error) {
     console.error(error);
@@ -168,21 +169,29 @@ function decodeSie(bytes) {
   const utf8 = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
   const formatMatch = utf8.match(/#FORMAT\s+([^\s]+)/i);
   const format = formatMatch ? formatMatch[1].toUpperCase() : "";
-  const replacementCount = (utf8.match(/\uFFFD/g) || []).length;
 
   if (format === "PC8") {
     return decodeCp437(bytes);
   }
 
-  if (replacementCount > 2) {
-    try {
-      return new TextDecoder("windows-1252").decode(bytes);
-    } catch {
-      return decodeCp437(bytes);
-    }
+  const replacementCount = (utf8.match(/�/g) || []).length;
+  if (replacementCount === 0) {
+    return utf8;
   }
 
-  return utf8;
+  const latin1 = new TextDecoder("iso-8859-1").decode(bytes);
+  if (/[åäöÅÄÖ]/.test(latin1)) {
+    return latin1;
+  }
+
+  try {
+    const win1252 = new TextDecoder("windows-1252").decode(bytes);
+    if (/[åäöÅÄÖ]/.test(win1252)) {
+      return win1252;
+    }
+  } catch {}
+
+  return decodeCp437(bytes);
 }
 
 function decodeCp437(bytes) {
@@ -304,6 +313,38 @@ function parseSie(text) {
   }
 
   return data;
+}
+
+function validateVouchers(parsed) {
+  const warnings = [...parsed.warnings];
+
+  const voucherTotals = new Map();
+  for (const tx of parsed.transactions) {
+    const key = `${tx.series}|${tx.voucherNumber}|${tx.voucherDate}`;
+    const current = voucherTotals.get(key) || { sum: 0, series: tx.series, number: tx.voucherNumber, date: tx.voucherDate };
+    current.sum += typeof tx.amount === "number" ? tx.amount : 0;
+    voucherTotals.set(key, current);
+  }
+
+  let imbalancedCount = 0;
+  for (const v of voucherTotals.values()) {
+    if (Math.abs(v.sum) > 0.009) {
+      imbalancedCount += 1;
+      if (imbalancedCount <= 5) {
+        warnings.push(`Verifikation ${v.series} ${v.number} (${v.date}): obalanserad med ${v.sum.toFixed(2)} kr.`);
+      }
+    }
+  }
+  if (imbalancedCount > 5) {
+    warnings.push(`${imbalancedCount - 5} ytterligare obalanserade verifikationer.`);
+  }
+
+  const unnamed = parsed.accounts.filter((a) => !a.name.trim());
+  if (unnamed.length) {
+    warnings.push(`${unnamed.length} konton saknar kontonamn.`);
+  }
+
+  return { ...parsed, warnings };
 }
 
 function tokenizeSieLine(line) {
@@ -590,19 +631,40 @@ function normalizeSieDate(value) {
   return `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`;
 }
 
-function createXlsx(workbook) {
+function collectStrings(sheets) {
+  const strings = new Map();
+  let totalCount = 0;
+  for (const [, rows] of sheets) {
+    for (const row of rows) {
+      for (const cell of row) {
+        if (typeof cell === "number" && Number.isFinite(cell)) continue;
+        const text = cell === undefined || cell === null ? "" : String(cell);
+        if (!strings.has(text)) {
+          strings.set(text, strings.size);
+        }
+        totalCount += 1;
+      }
+    }
+  }
+  return { strings, totalCount };
+}
+
+async function createXlsx(workbook) {
+  const { strings, totalCount } = collectStrings(workbook.sheets);
+
   const files = new Map();
   files.set("[Content_Types].xml", contentTypesXml(workbook.sheets.length));
   files.set("_rels/.rels", rootRelsXml());
   files.set("xl/workbook.xml", workbookXml(workbook.sheets));
   files.set("xl/_rels/workbook.xml.rels", workbookRelsXml(workbook.sheets.length));
   files.set("xl/styles.xml", stylesXml());
+  files.set("xl/sharedStrings.xml", sharedStringsXml(strings, totalCount));
 
-  workbook.sheets.forEach(([name, rows], index) => {
-    files.set(`xl/worksheets/sheet${index + 1}.xml`, worksheetXml(rows));
+  workbook.sheets.forEach(([, rows], index) => {
+    files.set(`xl/worksheets/sheet${index + 1}.xml`, worksheetXml(rows, strings));
   });
 
-  return zipFiles(files);
+  return await zipFiles(files);
 }
 
 function contentTypesXml(sheetCount) {
@@ -616,6 +678,7 @@ function contentTypesXml(sheetCount) {
   <Default Extension="xml" ContentType="application/xml"/>
   <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
   <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+  <Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/>
   ${overrides}
 </Types>`;
 }
@@ -643,6 +706,7 @@ function workbookRelsXml(sheetCount) {
     rels += `<Relationship Id="rId${index}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${index}.xml"/>`;
   }
   rels += `<Relationship Id="rId${sheetCount + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>`;
+  rels += `<Relationship Id="rId${sheetCount + 2}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="sharedStrings.xml"/>`;
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${rels}</Relationships>`;
 }
@@ -665,14 +729,23 @@ function stylesXml() {
 </styleSheet>`;
 }
 
-function worksheetXml(rows) {
+function sharedStringsXml(strings, totalCount) {
+  const items = [];
+  for (const [text] of strings) {
+    items.push(`<si><t>${escapeXml(text)}</t></si>`);
+  }
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${totalCount}" uniqueCount="${strings.size}">${items.join("")}</sst>`;
+}
+
+function worksheetXml(rows, strings) {
   const safeRows = rows.length ? rows : [[""]];
   const maxCols = safeRows.reduce((max, row) => Math.max(max, row.length), 1);
   const dimension = `A1:${columnName(maxCols)}${safeRows.length}`;
   const sheetData = safeRows
     .map((row, rowIndex) => {
       const cells = row
-        .map((value, colIndex) => cellXml(value, rowIndex + 1, colIndex + 1, rowIndex === 0))
+        .map((value, colIndex) => cellXml(value, rowIndex + 1, colIndex + 1, rowIndex === 0, strings))
         .join("");
       return `<row r="${rowIndex + 1}">${cells}</row>`;
     })
@@ -688,14 +761,15 @@ function worksheetXml(rows) {
 </worksheet>`;
 }
 
-function cellXml(value, row, col, isHeader) {
+function cellXml(value, row, col, isHeader, strings) {
   const ref = `${columnName(col)}${row}`;
   const style = isHeader ? ' s="1"' : "";
   if (typeof value === "number" && Number.isFinite(value)) {
     return `<c r="${ref}"${style}><v>${value}</v></c>`;
   }
   const text = value === undefined || value === null ? "" : String(value);
-  return `<c r="${ref}" t="inlineStr"${style}><is><t>${escapeXml(text)}</t></is></c>`;
+  const index = strings.get(text);
+  return `<c r="${ref}" t="s"${style}><v>${index}</v></c>`;
 }
 
 function columnName(index) {
@@ -709,57 +783,97 @@ function columnName(index) {
   return name;
 }
 
-function zipFiles(files) {
+async function deflateData(data) {
+  if (typeof CompressionStream === "undefined") return null;
+  try {
+    const stream = new Blob([data]).stream().pipeThrough(new CompressionStream("deflate-raw"));
+    const reader = stream.getReader();
+    const chunks = [];
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+    }
+    let totalLength = 0;
+    for (const chunk of chunks) totalLength += chunk.length;
+    const result = new Uint8Array(totalLength);
+    let offset = 0;
+    for (const chunk of chunks) {
+      result.set(chunk, offset);
+      offset += chunk.length;
+    }
+    return result;
+  } catch {
+    return null;
+  }
+}
+
+async function zipFiles(files) {
   const encoder = new TextEncoder();
+  const entries = [];
+
+  for (const [path, content] of files) {
+    const nameBytes = encoder.encode(path);
+    const raw = typeof content === "string" ? encoder.encode(content) : content;
+    const crc = crc32(raw);
+    const compressed = await deflateData(raw);
+    const useDeflate = compressed !== null && compressed.length < raw.length;
+    entries.push({
+      nameBytes,
+      data: useDeflate ? compressed : raw,
+      uncompressedSize: raw.length,
+      compressedSize: useDeflate ? compressed.length : raw.length,
+      crc,
+      method: useDeflate ? 8 : 0
+    });
+  }
+
   const localParts = [];
   const centralParts = [];
   let offset = 0;
 
-  for (const [path, content] of files) {
-    const nameBytes = encoder.encode(path);
-    const data = typeof content === "string" ? encoder.encode(content) : content;
-    const crc = crc32(data);
-    const localHeader = new Uint8Array(30 + nameBytes.length);
+  for (const entry of entries) {
+    const localHeader = new Uint8Array(30 + entry.nameBytes.length);
     const localView = new DataView(localHeader.buffer);
     localView.setUint32(0, 0x04034b50, true);
     localView.setUint16(4, 20, true);
     localView.setUint16(6, 0, true);
-    localView.setUint16(8, 0, true);
+    localView.setUint16(8, entry.method, true);
     localView.setUint16(10, dosTime(), true);
     localView.setUint16(12, dosDate(), true);
-    localView.setUint32(14, crc, true);
-    localView.setUint32(18, data.length, true);
-    localView.setUint32(22, data.length, true);
-    localView.setUint16(26, nameBytes.length, true);
-    localHeader.set(nameBytes, 30);
-    localParts.push(localHeader, data);
+    localView.setUint32(14, entry.crc, true);
+    localView.setUint32(18, entry.compressedSize, true);
+    localView.setUint32(22, entry.uncompressedSize, true);
+    localView.setUint16(26, entry.nameBytes.length, true);
+    localHeader.set(entry.nameBytes, 30);
+    localParts.push(localHeader, entry.data);
 
-    const centralHeader = new Uint8Array(46 + nameBytes.length);
+    const centralHeader = new Uint8Array(46 + entry.nameBytes.length);
     const centralView = new DataView(centralHeader.buffer);
     centralView.setUint32(0, 0x02014b50, true);
     centralView.setUint16(4, 20, true);
     centralView.setUint16(6, 20, true);
     centralView.setUint16(8, 0, true);
-    centralView.setUint16(10, 0, true);
+    centralView.setUint16(10, entry.method, true);
     centralView.setUint16(12, dosTime(), true);
     centralView.setUint16(14, dosDate(), true);
-    centralView.setUint32(16, crc, true);
-    centralView.setUint32(20, data.length, true);
-    centralView.setUint32(24, data.length, true);
-    centralView.setUint16(28, nameBytes.length, true);
+    centralView.setUint32(16, entry.crc, true);
+    centralView.setUint32(20, entry.compressedSize, true);
+    centralView.setUint32(24, entry.uncompressedSize, true);
+    centralView.setUint16(28, entry.nameBytes.length, true);
     centralView.setUint32(42, offset, true);
-    centralHeader.set(nameBytes, 46);
+    centralHeader.set(entry.nameBytes, 46);
     centralParts.push(centralHeader);
 
-    offset += localHeader.length + data.length;
+    offset += localHeader.length + entry.data.length;
   }
 
   const centralSize = centralParts.reduce((sum, part) => sum + part.length, 0);
   const end = new Uint8Array(22);
   const endView = new DataView(end.buffer);
   endView.setUint32(0, 0x06054b50, true);
-  endView.setUint16(8, files.size, true);
-  endView.setUint16(10, files.size, true);
+  endView.setUint16(8, entries.length, true);
+  endView.setUint16(10, entries.length, true);
   endView.setUint32(12, centralSize, true);
   endView.setUint32(16, offset, true);
 

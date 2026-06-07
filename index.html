@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>R DataBlocks SIE Converter</title>
-    <meta name="description" content="Konvertera svenska SIE-filer till analysklara Excel-arbetsböcker utan LLM-kostnad." />
+    <title>R DataBlocks SIE Converter — SIE till Excel</title>
+    <meta name="description" content="Konvertera svenska SIE-filer till analysklara Excel-arbetsböcker. Lokal konvertering med automatisk balansvalidering. Gratis under beta." />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -18,53 +18,48 @@
       </a>
       <nav aria-label="Huvudnavigation">
         <a href="#converter">Konvertera</a>
-        <a href="#pricing">Priser</a>
+        <a href="#use-cases">För vem</a>
         <a href="#details">Format</a>
       </nav>
     </header>
 
     <main id="top">
       <section class="hero" aria-labelledby="hero-title">
-        <div class="hero-media" aria-hidden="true">
-          <img src="assets/rdata_logo.jpeg" alt="" />
-        </div>
         <div class="hero-content">
-          <p class="eyebrow">Byggt för svenska ekonomi- och analysflöden</p>
-          <h1 id="hero-title">SIE-filer till analysklara Excel-arbetsböcker</h1>
+          <p class="eyebrow">Byggt för controllers, revisorer och CFO-team</p>
+          <h1 id="hero-title">SIE till analysklart Excel — på sekunder</h1>
           <p>
-            Ladda upp en svensk <strong>.se</strong> eller <strong>.sie</strong>-fil och få en
-            deterministiskt skapad <strong>.xlsx</strong> med verifikationer, transaktioner,
-            kontoplan, balansrader och månadssummeringar.
+            Ladda upp en <strong>.se</strong> eller <strong>.sie</strong>-fil och få en
+            strukturerad <strong>.xlsx</strong> med verifikationer, transaktioner,
+            kontoplan och automatisk balansvalidering. Din data lämnar aldrig webbläsaren.
           </p>
           <div class="hero-actions">
-            <a class="button primary" href="#converter">Konvertera fil</a>
-            <a class="button secondary" href="#pricing">Se priser</a>
+            <a class="button primary" href="#converter">Konvertera nu</a>
+            <a class="button secondary" href="#details">Så fungerar det</a>
           </div>
         </div>
       </section>
 
       <section class="trust-band" aria-label="Produktfördelar">
         <div>
-          <strong>Ingen LLM-kostnad</strong>
-          <span>Kärnkonverteringen kör lokalt och deterministiskt.</span>
+          <strong>Lokal &amp; privat</strong>
+          <span>All konvertering sker i din webbläsare. Ingen data skickas till en server.</span>
         </div>
         <div>
-          <strong>Analysredo Excel</strong>
-          <span>Separata ark för bokföring, sammanfattningar och metadata.</span>
+          <strong>Analysredo format</strong>
+          <span>Separata ark för transaktioner, sammanfattningar, balansrader och metadata.</span>
         </div>
         <div>
-          <strong>Svensk SIE-logik</strong>
-          <span>Stöd för konton, IB/UB/RES och verifikationstransaktioner.</span>
+          <strong>Automatisk validering</strong>
+          <span>Debet/kredit-kontroll per verifikation. Obalanser flaggas direkt.</span>
         </div>
       </section>
 
       <section class="workspace" id="converter" aria-labelledby="converter-title">
         <div class="section-heading">
           <p class="eyebrow">Konverterare</p>
-          <h2 id="converter-title">Ladda upp SIE och skapa workbook</h2>
-          <p>
-            Filen behandlas i webbläsaren. Den skickas inte till en server i denna version.
-          </p>
+          <h2 id="converter-title">Ladda upp SIE och skapa arbetsbok</h2>
+          <p>Filen behandlas helt i webbläsaren. Inget laddas upp.</p>
         </div>
 
         <div class="converter-layout">
@@ -78,7 +73,7 @@
 
             <div class="options-grid" aria-label="Konverteringsinställningar">
               <label>
-                Workbook-namn
+                Filnamn
                 <input id="workbook-name" type="text" value="sie-analys" maxlength="80" />
               </label>
               <label>
@@ -90,7 +85,7 @@
               </label>
               <label class="check-option">
                 <input id="include-raw" type="checkbox" checked />
-                <span>Inkludera raw SIE-rader</span>
+                <span>Inkludera råa SIE-rader</span>
               </label>
               <label class="check-option">
                 <input id="include-empty" type="checkbox" />
@@ -133,7 +128,7 @@
             </dl>
 
             <div class="download-slot" id="download-slot" hidden>
-              <a class="button primary full" id="download-link" href="#" download>Ladda ner workbook</a>
+              <a class="button primary full" id="download-link" href="#" download>Ladda ner arbetsbok</a>
               <small id="download-note"></small>
             </div>
 
@@ -145,56 +140,47 @@
         </div>
       </section>
 
-      <section class="pricing" id="pricing" aria-labelledby="pricing-title">
+      <section class="use-cases" id="use-cases" aria-labelledby="use-cases-title">
         <div class="section-heading">
-          <p class="eyebrow">Prissatt för svenska bolag</p>
-          <h2 id="pricing-title">Betala per fil eller obegränsat månadsabonnemang</h2>
-          <p>
-            Kärnprodukten är deterministisk. AI-analys kan läggas ovanpå senare som separat tillval.
-          </p>
+          <p class="eyebrow">Målgrupp</p>
+          <h2 id="use-cases-title">Byggt för de som analyserar — inte bokför</h2>
+          <p>SIE Converter riktar sig till beslutsfattare som tar emot SIE-filer men arbetar i Excel.</p>
         </div>
 
-        <div class="pricing-grid">
-          <article class="price-card">
-            <span class="price-label">Styckvis</span>
-            <h3>10 kr</h3>
-            <p>Per konverterad SIE-fil.</p>
-            <ul>
-              <li>Passar byråer med sporadiska analyser</li>
-              <li>Workbook med transaktions- och kontoark</li>
-              <li>Ingen inläsning via AI</li>
-            </ul>
-            <a class="button secondary full" href="#converter">Konvertera en fil</a>
+        <div class="use-cases-grid">
+          <article>
+            <strong>Controllers</strong>
+            <span>Konsolidera SIE-data från dotterbolag och externa byråer i egna Excel-modeller.</span>
           </article>
-
-          <article class="price-card featured">
-            <span class="price-label">Prenumeration</span>
-            <h3>99 kr <small>/ månad</small></h3>
-            <p>Obegränsade dokument för återkommande ekonomiroller.</p>
-            <ul>
-              <li>För controller, redovisningsbyrå och CFO-team</li>
-              <li>Snabb batch-rutin kan byggas in senare</li>
-              <li>Prioriterat stöd för SIE-edge cases</li>
-            </ul>
-            <a class="button primary full" href="#converter">Starta med en fil</a>
+          <article>
+            <strong>Revisorer</strong>
+            <span>Omvandla klienters SIE-exporter till granskningsbart format med automatisk balansvalidering.</span>
+          </article>
+          <article>
+            <strong>CFO &amp; styrelse</strong>
+            <span>Skapa finansiella översikter och styrelseunderlag direkt från bokföringssystemets utdata.</span>
+          </article>
+          <article>
+            <strong>M&amp;A-rådgivare</strong>
+            <span>Snabb due diligence — analysera transaktionshistorik utan tillgång till målbolagets system.</span>
           </article>
         </div>
       </section>
 
       <section class="details" id="details" aria-labelledby="details-title">
         <div class="section-heading">
-          <p class="eyebrow">Workbook-format</p>
+          <p class="eyebrow">Arbetsbokformat</p>
           <h2 id="details-title">Arken som skapas</h2>
         </div>
 
         <div class="sheet-list">
           <div>
             <strong>Metadata</strong>
-            <span>Företagsnamn, orgnummer, program, format och räkenskapsår.</span>
+            <span>Företagsnamn, organisationsnummer, program, format och räkenskapsår.</span>
           </div>
           <div>
             <strong>Kontoplan</strong>
-            <span>Alla #KONTO-rader med nummer och kontonamn.</span>
+            <span>Alla #KONTO-rader med kontonummer och kontonamn.</span>
           </div>
           <div>
             <strong>Verifikationer</strong>
@@ -214,11 +200,23 @@
           </div>
         </div>
       </section>
+
+      <section class="beta-section" id="beta" aria-labelledby="beta-title">
+        <div class="section-heading">
+          <p class="eyebrow">Öppen beta</p>
+          <h2 id="beta-title">Gratis under lanseringen</h2>
+          <p>
+            SIE Converter är i öppen beta. Konvertera obegränsat utan kostnad.
+            Professionella planer med batch-konvertering och utökad analys lanseras snart.
+          </p>
+          <a class="button primary" href="#converter">Börja konvertera</a>
+        </div>
+      </section>
     </main>
 
     <footer class="site-footer">
       <span>&copy; 2025 R DataBlocks</span>
-      <span>Deterministisk SIE-konvertering för svenska bolag.</span>
+      <span>SIE-konvertering för svenska bolag.</span>
     </footer>
 
     <script src="app.js"></script>
