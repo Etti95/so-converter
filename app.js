@@ -1,0 +1,830 @@
+"use strict";
+
+const CP437_HIGH =
+  "ÇüéâäàåçêëèïîìÄÅÉæÆôöòûùÿÖÜ¢£¥₧ƒ" +
+  "áíóúñÑªº¿⌐¬½¼¡«»░▒▓│┤╡╢╖╕╣║╗╝╜╛┐" +
+  "└┴┬├─┼╞╟╚╔╩╦╠═╬╧╨╤╥╙╘╒╓╫╪┘┌█▄▌▐▀" +
+  "αßΓπΣσµτΦΘΩδ∞φε∩≡±≥≤⌠⌡÷≈°∙·√ⁿ²■ ";
+
+const state = {
+  file: null,
+  lastUrl: null
+};
+
+const form = document.querySelector("#converter-form");
+const fileInput = document.querySelector("#sie-file");
+const dropZone = document.querySelector("#drop-zone");
+const resetButton = document.querySelector("#reset-button");
+const workbookName = document.querySelector("#workbook-name");
+const periodFilter = document.querySelector("#period-filter");
+const includeRaw = document.querySelector("#include-raw");
+const includeEmpty = document.querySelector("#include-empty");
+const statusBlock = document.querySelector("#status-block");
+const metrics = {
+  vouchers: document.querySelector("#metric-vouchers"),
+  transactions: document.querySelector("#metric-transactions"),
+  accounts: document.querySelector("#metric-accounts"),
+  warnings: document.querySelector("#metric-warnings")
+};
+const downloadSlot = document.querySelector("#download-slot");
+const downloadLink = document.querySelector("#download-link");
+const downloadNote = document.querySelector("#download-note");
+const warningsBox = document.querySelector("#warnings");
+const warningsList = document.querySelector("#warnings-list");
+
+dropZone.addEventListener("dragover", (event) => {
+  event.preventDefault();
+  dropZone.classList.add("is-dragging");
+});
+
+dropZone.addEventListener("dragleave", () => {
+  dropZone.classList.remove("is-dragging");
+});
+
+dropZone.addEventListener("drop", (event) => {
+  event.preventDefault();
+  dropZone.classList.remove("is-dragging");
+  const [file] = event.dataTransfer.files;
+  if (file) {
+    state.file = file;
+    fileInput.files = event.dataTransfer.files;
+    setStatus("idle", file.name, "Filen är vald. Skapa workbook när du är redo.");
+  }
+});
+
+fileInput.addEventListener("change", () => {
+  const [file] = fileInput.files;
+  state.file = file || null;
+  if (file) {
+    setStatus("idle", file.name, "Filen är vald. Skapa workbook när du är redo.");
+  }
+});
+
+resetButton.addEventListener("click", () => {
+  form.reset();
+  workbookName.value = "sie-analys";
+  state.file = null;
+  fileInput.value = "";
+  revokeLastUrl();
+  resetResults();
+});
+
+form.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const file = state.file || fileInput.files[0];
+  if (!file) {
+    setStatus("warning", "Ingen fil vald", "Välj en .se eller .sie-fil först.");
+    return;
+  }
+
+  const submitButton = form.querySelector('button[type="submit"]');
+  submitButton.disabled = true;
+  submitButton.textContent = "Skapar…";
+
+  try {
+    setStatus("idle", "Läser fil", "Tolkar SIE-rader och skapar Excel-struktur.");
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const text = decodeSie(bytes);
+    const parsed = parseSie(text);
+    const filtered = applyPeriodFilter(parsed, periodFilter.value);
+    const workbook = buildWorkbook(filtered, {
+      sourceFile: file.name,
+      includeRaw: includeRaw.checked,
+      includeEmpty: includeEmpty.checked
+    });
+    const blob = createXlsx(workbook);
+    const safeName = sanitizeFileName(workbookName.value || file.name.replace(/\.[^.]+$/, ""));
+    revokeLastUrl();
+    state.lastUrl = URL.createObjectURL(blob);
+    downloadLink.href = state.lastUrl;
+    downloadLink.download = `${safeName}.xlsx`;
+    downloadSlot.hidden = false;
+    downloadNote.textContent = `${formatNumber(blob.size)} bytes skapade lokalt i webbläsaren.`;
+    updateMetrics(filtered);
+    renderWarnings(filtered.warnings);
+    setStatus(
+      filtered.warnings.length ? "warning" : "success",
+      "Workbook skapad",
+      `${formatNumber(filtered.transactions.length)} transaktioner är redo för nedladdning.`
+    );
+  } catch (error) {
+    console.error(error);
+    setStatus("warning", "Konverteringen stoppade", error.message || "Okänt fel.");
+  } finally {
+    submitButton.disabled = false;
+    submitButton.textContent = "Skapa .xlsx";
+  }
+});
+
+function resetResults() {
+  updateMetrics({ vouchers: [], transactions: [], accounts: [], warnings: [] });
+  downloadSlot.hidden = true;
+  warningsBox.hidden = true;
+  warningsList.innerHTML = "";
+  setStatus("idle", "Redo för fil", "Sammanfattning visas när en SIE-fil har lästs in.");
+}
+
+function setStatus(kind, title, body) {
+  statusBlock.innerHTML = `
+    <span class="status-dot ${kind}"></span>
+    <div>
+      <strong>${escapeHtml(title)}</strong>
+      <p>${escapeHtml(body)}</p>
+    </div>
+  `;
+}
+
+function updateMetrics(parsed) {
+  metrics.vouchers.textContent = formatNumber(parsed.vouchers.length);
+  metrics.transactions.textContent = formatNumber(parsed.transactions.length);
+  metrics.accounts.textContent = formatNumber(parsed.accounts.length);
+  metrics.warnings.textContent = formatNumber(parsed.warnings.length);
+}
+
+function renderWarnings(warnings) {
+  warningsList.innerHTML = "";
+  const visible = warnings.slice(0, 8);
+  for (const warning of visible) {
+    const item = document.createElement("li");
+    item.textContent = warning;
+    warningsList.appendChild(item);
+  }
+  if (warnings.length > visible.length) {
+    const item = document.createElement("li");
+    item.textContent = `${warnings.length - visible.length} ytterligare kontrollpunkter finns i arket Warnings.`;
+    warningsList.appendChild(item);
+  }
+  warningsBox.hidden = warnings.length === 0;
+}
+
+function revokeLastUrl() {
+  if (state.lastUrl) {
+    URL.revokeObjectURL(state.lastUrl);
+    state.lastUrl = null;
+  }
+}
+
+function decodeSie(bytes) {
+  const utf8 = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+  const formatMatch = utf8.match(/#FORMAT\s+([^\s]+)/i);
+  const format = formatMatch ? formatMatch[1].toUpperCase() : "";
+  const replacementCount = (utf8.match(/\uFFFD/g) || []).length;
+
+  if (format === "PC8") {
+    return decodeCp437(bytes);
+  }
+
+  if (replacementCount > 2) {
+    try {
+      return new TextDecoder("windows-1252").decode(bytes);
+    } catch {
+      return decodeCp437(bytes);
+    }
+  }
+
+  return utf8;
+}
+
+function decodeCp437(bytes) {
+  let output = "";
+  for (const byte of bytes) {
+    output += byte < 128 ? String.fromCharCode(byte) : CP437_HIGH[byte - 128] || "";
+  }
+  return output;
+}
+
+function parseSie(text) {
+  const data = {
+    metadata: [],
+    fiscalYears: [],
+    accounts: [],
+    balances: [],
+    vouchers: [],
+    transactions: [],
+    rawLines: [],
+    warnings: []
+  };
+  const accountNames = new Map();
+  const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
+  let currentVoucher = null;
+  let transactionIndex = 0;
+
+  lines.forEach((rawLine, index) => {
+    const lineNumber = index + 1;
+    const line = rawLine.trim();
+    if (!line) return;
+
+    data.rawLines.push({ lineNumber, raw: rawLine });
+
+    if (line === "{") return;
+    if (line === "}") {
+      currentVoucher = null;
+      return;
+    }
+
+    const tokens = tokenizeSieLine(line);
+    if (!tokens.length) return;
+
+    const command = tokens[0].toUpperCase();
+    try {
+      switch (command) {
+        case "#KONTO": {
+          const account = tokens[1] || "";
+          const name = tokens.slice(2).join(" ");
+          accountNames.set(account, name);
+          data.accounts.push({ account, name, lineNumber });
+          break;
+        }
+        case "#RAR": {
+          data.fiscalYears.push({
+            yearId: tokens[1] || "",
+            startDate: normalizeSieDate(tokens[2]),
+            endDate: normalizeSieDate(tokens[3]),
+            lineNumber
+          });
+          break;
+        }
+        case "#IB":
+        case "#UB":
+        case "#RES": {
+          data.balances.push({
+            type: command.slice(1),
+            yearId: tokens[1] || "",
+            account: tokens[2] || "",
+            amount: parseAmount(tokens[3]),
+            quantity: parseAmount(tokens[4]),
+            lineNumber
+          });
+          break;
+        }
+        case "#VER": {
+          currentVoucher = {
+            series: tokens[1] || "",
+            voucherNumber: tokens[2] || "",
+            voucherDate: normalizeSieDate(tokens[3]),
+            text: tokens[4] || "",
+            registeredAt: normalizeSieDate(tokens[5]),
+            signature: tokens[6] || "",
+            lineNumber
+          };
+          data.vouchers.push(currentVoucher);
+          break;
+        }
+        case "#TRANS":
+        case "#RTRANS":
+        case "#BTRANS": {
+          transactionIndex += 1;
+          const transaction = parseTransaction(tokens, command, currentVoucher, lineNumber, transactionIndex);
+          transaction.accountName = accountNames.get(transaction.account) || "";
+          data.transactions.push(transaction);
+          if (!currentVoucher) {
+            data.warnings.push(`Rad ${lineNumber}: transaktion utan aktiv #VER.`);
+          }
+          break;
+        }
+        default: {
+          if (command.startsWith("#")) {
+            data.metadata.push({
+              key: command.slice(1),
+              value: tokens.slice(1).join(" "),
+              lineNumber
+            });
+          } else {
+            data.warnings.push(`Rad ${lineNumber}: okänd rad utan SIE-kommando.`);
+          }
+        }
+      }
+    } catch (error) {
+      data.warnings.push(`Rad ${lineNumber}: kunde inte tolka "${line.slice(0, 80)}".`);
+    }
+  });
+
+  if (!data.transactions.length) {
+    data.warnings.push("Inga transaktioner hittades. Kontrollera att filen är en SIE4-fil.");
+  }
+
+  return data;
+}
+
+function tokenizeSieLine(line) {
+  const tokens = [];
+  let token = "";
+  let inQuote = false;
+  let inBrace = false;
+
+  for (let i = 0; i < line.length; i += 1) {
+    const char = line[i];
+    const next = line[i + 1];
+
+    if (inQuote) {
+      if (char === "\"" && next === "\"") {
+        token += "\"";
+        i += 1;
+      } else if (char === "\"") {
+        inQuote = false;
+      } else {
+        token += char;
+      }
+      continue;
+    }
+
+    if (inBrace) {
+      token += char;
+      if (char === "}") {
+        tokens.push(token.trim());
+        token = "";
+        inBrace = false;
+      }
+      continue;
+    }
+
+    if (char === "\"") {
+      inQuote = true;
+      continue;
+    }
+
+    if (char === "{") {
+      if (token.trim()) {
+        tokens.push(token.trim());
+        token = "";
+      }
+      token = "{";
+      inBrace = true;
+      continue;
+    }
+
+    if (/\s/.test(char)) {
+      if (token.trim()) {
+        tokens.push(token.trim());
+        token = "";
+      }
+      continue;
+    }
+
+    token += char;
+  }
+
+  if (token.trim()) {
+    tokens.push(token.trim());
+  }
+
+  return tokens;
+}
+
+function parseTransaction(tokens, command, voucher, lineNumber, transactionIndex) {
+  const account = tokens[1] || "";
+  let cursor = 2;
+  let dimensions = "";
+  if ((tokens[cursor] || "").startsWith("{")) {
+    dimensions = tokens[cursor];
+    cursor += 1;
+  }
+
+  return {
+    transactionId: transactionIndex,
+    type: command.slice(1),
+    series: voucher?.series || "",
+    voucherNumber: voucher?.voucherNumber || "",
+    voucherDate: voucher?.voucherDate || "",
+    voucherText: voucher?.text || "",
+    account,
+    dimensions,
+    amount: parseAmount(tokens[cursor]),
+    transactionDate: normalizeSieDate(tokens[cursor + 1]),
+    text: tokens[cursor + 2] || "",
+    quantity: parseAmount(tokens[cursor + 3]),
+    signature: tokens[cursor + 4] || "",
+    lineNumber
+  };
+}
+
+function applyPeriodFilter(parsed, filter) {
+  if (filter !== "current-year" || !parsed.fiscalYears.length) {
+    return parsed;
+  }
+
+  const years = parsed.fiscalYears
+    .filter((year) => year.startDate && year.endDate)
+    .sort((a, b) => b.endDate.localeCompare(a.endDate));
+  const latest = years[0];
+  if (!latest) return parsed;
+
+  const inRange = (date) => date >= latest.startDate && date <= latest.endDate;
+  const transactions = parsed.transactions.filter((row) => inRange(row.transactionDate || row.voucherDate));
+  const voucherKeys = new Set(transactions.map((row) => `${row.series}|${row.voucherNumber}|${row.voucherDate}`));
+  return {
+    ...parsed,
+    vouchers: parsed.vouchers.filter((row) => voucherKeys.has(`${row.series}|${row.voucherNumber}|${row.voucherDate}`)),
+    transactions,
+    warnings: [
+      ...parsed.warnings,
+      `Periodfilter: endast ${latest.startDate} till ${latest.endDate} inkluderades.`
+    ]
+  };
+}
+
+function buildWorkbook(parsed, options) {
+  const metadata = parsed.metadata.map((row) => [row.key, row.value, row.lineNumber]);
+  metadata.unshift(["Källa", options.sourceFile, ""]);
+  metadata.unshift(["Fält", "Värde", "Rad"]);
+
+  const fiscalYears = [
+    ["Års-ID", "Startdatum", "Slutdatum", "Rad"],
+    ...parsed.fiscalYears.map((row) => [row.yearId, row.startDate, row.endDate, row.lineNumber])
+  ];
+
+  const accounts = [
+    ["Konto", "Kontonamn", "Rad"],
+    ...parsed.accounts.map((row) => [row.account, row.name, row.lineNumber])
+  ];
+
+  const balances = [
+    ["Typ", "Års-ID", "Konto", "Belopp", "Kvantitet", "Rad"],
+    ...parsed.balances.map((row) => [row.type, row.yearId, row.account, row.amount, row.quantity, row.lineNumber])
+  ];
+
+  const vouchers = [
+    ["Serie", "Verifikationsnummer", "Datum", "Text", "Registrerad", "Signatur", "Rad"],
+    ...parsed.vouchers.map((row) => [
+      row.series,
+      row.voucherNumber,
+      row.voucherDate,
+      row.text,
+      row.registeredAt,
+      row.signature,
+      row.lineNumber
+    ])
+  ];
+
+  const transactions = [
+    [
+      "Transaktions-ID",
+      "Typ",
+      "Serie",
+      "Verifikationsnummer",
+      "Verifikationsdatum",
+      "Verifikationstext",
+      "Konto",
+      "Kontonamn",
+      "Dimensioner",
+      "Belopp",
+      "Transaktionsdatum",
+      "Text",
+      "Kvantitet",
+      "Signatur",
+      "Rad"
+    ],
+    ...parsed.transactions.map((row) => [
+      row.transactionId,
+      row.type,
+      row.series,
+      row.voucherNumber,
+      row.voucherDate,
+      row.voucherText,
+      row.account,
+      row.accountName,
+      row.dimensions,
+      row.amount,
+      row.transactionDate,
+      row.text,
+      row.quantity,
+      row.signature,
+      row.lineNumber
+    ])
+  ];
+
+  const monthlySummary = summarizeMonthly(parsed.transactions);
+  const accountSummary = summarizeAccounts(parsed.transactions);
+  const warnings = [["Kontrollpunkt"], ...parsed.warnings.map((warning) => [warning])];
+  const rawLines = [["Rad", "SIE-rad"], ...parsed.rawLines.map((row) => [row.lineNumber, row.raw])];
+
+  const sheets = [
+    ["Metadata", metadata],
+    ["FiscalYears", fiscalYears],
+    ["Accounts", accounts],
+    ["Balances", balances],
+    ["Vouchers", vouchers],
+    ["Transactions", transactions],
+    ["MonthlySummary", monthlySummary],
+    ["AccountSummary", accountSummary],
+    ["Warnings", warnings]
+  ];
+
+  if (options.includeRaw) sheets.push(["RawSIE", rawLines]);
+
+  return {
+    sheets: options.includeEmpty ? sheets : sheets.filter(([, rows]) => rows.length > 1 || rows[0].length > 0)
+  };
+}
+
+function summarizeMonthly(transactions) {
+  const map = new Map();
+  for (const row of transactions) {
+    const date = row.transactionDate || row.voucherDate || "";
+    const month = date ? date.slice(0, 7) : "Okänd";
+    const key = `${month}|${row.account}|${row.accountName}`;
+    const current = map.get(key) || {
+      month,
+      account: row.account,
+      accountName: row.accountName,
+      debit: 0,
+      credit: 0,
+      net: 0,
+      count: 0
+    };
+    addAmount(current, row.amount);
+    map.set(key, current);
+  }
+  return [
+    ["Månad", "Konto", "Kontonamn", "Debet", "Kredit", "Netto", "Antal transaktioner"],
+    ...Array.from(map.values())
+      .sort((a, b) => `${a.month}|${a.account}`.localeCompare(`${b.month}|${b.account}`))
+      .map((row) => [row.month, row.account, row.accountName, row.debit, row.credit, row.net, row.count])
+  ];
+}
+
+function summarizeAccounts(transactions) {
+  const map = new Map();
+  for (const row of transactions) {
+    const key = `${row.account}|${row.accountName}`;
+    const current = map.get(key) || {
+      account: row.account,
+      accountName: row.accountName,
+      debit: 0,
+      credit: 0,
+      net: 0,
+      count: 0
+    };
+    addAmount(current, row.amount);
+    map.set(key, current);
+  }
+  return [
+    ["Konto", "Kontonamn", "Debet", "Kredit", "Netto", "Antal transaktioner"],
+    ...Array.from(map.values())
+      .sort((a, b) => a.account.localeCompare(b.account, "sv"))
+      .map((row) => [row.account, row.accountName, row.debit, row.credit, row.net, row.count])
+  ];
+}
+
+function addAmount(target, amount) {
+  const value = Number.isFinite(amount) ? amount : 0;
+  if (value >= 0) {
+    target.debit += value;
+  } else {
+    target.credit += Math.abs(value);
+  }
+  target.net += value;
+  target.count += 1;
+}
+
+function parseAmount(value) {
+  if (value === undefined || value === "") return "";
+  const normalized = String(value).replace(/\s/g, "").replace(",", ".");
+  const number = Number(normalized);
+  return Number.isFinite(number) ? number : "";
+}
+
+function normalizeSieDate(value) {
+  const raw = String(value || "");
+  if (!/^\d{8}$/.test(raw)) return "";
+  return `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`;
+}
+
+function createXlsx(workbook) {
+  const files = new Map();
+  files.set("[Content_Types].xml", contentTypesXml(workbook.sheets.length));
+  files.set("_rels/.rels", rootRelsXml());
+  files.set("xl/workbook.xml", workbookXml(workbook.sheets));
+  files.set("xl/_rels/workbook.xml.rels", workbookRelsXml(workbook.sheets.length));
+  files.set("xl/styles.xml", stylesXml());
+
+  workbook.sheets.forEach(([name, rows], index) => {
+    files.set(`xl/worksheets/sheet${index + 1}.xml`, worksheetXml(rows));
+  });
+
+  return zipFiles(files);
+}
+
+function contentTypesXml(sheetCount) {
+  let overrides = "";
+  for (let index = 1; index <= sheetCount; index += 1) {
+    overrides += `<Override PartName="/xl/worksheets/sheet${index}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`;
+  }
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+  ${overrides}
+</Types>`;
+}
+
+function rootRelsXml() {
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+</Relationships>`;
+}
+
+function workbookXml(sheets) {
+  const sheetXml = sheets
+    .map(([name], index) => `<sheet name="${escapeXml(sheetName(name))}" sheetId="${index + 1}" r:id="rId${index + 1}"/>`)
+    .join("");
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets>${sheetXml}</sheets>
+</workbook>`;
+}
+
+function workbookRelsXml(sheetCount) {
+  let rels = "";
+  for (let index = 1; index <= sheetCount; index += 1) {
+    rels += `<Relationship Id="rId${index}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${index}.xml"/>`;
+  }
+  rels += `<Relationship Id="rId${sheetCount + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>`;
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${rels}</Relationships>`;
+}
+
+function stylesXml() {
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <fonts count="2">
+    <font><sz val="11"/><name val="Calibri"/></font>
+    <font><b/><sz val="11"/><name val="Calibri"/></font>
+  </fonts>
+  <fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>
+  <borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>
+  <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+  <cellXfs count="2">
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
+    <xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>
+  </cellXfs>
+  <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+</styleSheet>`;
+}
+
+function worksheetXml(rows) {
+  const safeRows = rows.length ? rows : [[""]];
+  const maxCols = safeRows.reduce((max, row) => Math.max(max, row.length), 1);
+  const dimension = `A1:${columnName(maxCols)}${safeRows.length}`;
+  const sheetData = safeRows
+    .map((row, rowIndex) => {
+      const cells = row
+        .map((value, colIndex) => cellXml(value, rowIndex + 1, colIndex + 1, rowIndex === 0))
+        .join("");
+      return `<row r="${rowIndex + 1}">${cells}</row>`;
+    })
+    .join("");
+
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <dimension ref="${dimension}"/>
+  <sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>
+  <sheetFormatPr defaultRowHeight="15"/>
+  <sheetData>${sheetData}</sheetData>
+  <autoFilter ref="${dimension}"/>
+</worksheet>`;
+}
+
+function cellXml(value, row, col, isHeader) {
+  const ref = `${columnName(col)}${row}`;
+  const style = isHeader ? ' s="1"' : "";
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return `<c r="${ref}"${style}><v>${value}</v></c>`;
+  }
+  const text = value === undefined || value === null ? "" : String(value);
+  return `<c r="${ref}" t="inlineStr"${style}><is><t>${escapeXml(text)}</t></is></c>`;
+}
+
+function columnName(index) {
+  let name = "";
+  let current = index;
+  while (current > 0) {
+    current -= 1;
+    name = String.fromCharCode(65 + (current % 26)) + name;
+    current = Math.floor(current / 26);
+  }
+  return name;
+}
+
+function zipFiles(files) {
+  const encoder = new TextEncoder();
+  const localParts = [];
+  const centralParts = [];
+  let offset = 0;
+
+  for (const [path, content] of files) {
+    const nameBytes = encoder.encode(path);
+    const data = typeof content === "string" ? encoder.encode(content) : content;
+    const crc = crc32(data);
+    const localHeader = new Uint8Array(30 + nameBytes.length);
+    const localView = new DataView(localHeader.buffer);
+    localView.setUint32(0, 0x04034b50, true);
+    localView.setUint16(4, 20, true);
+    localView.setUint16(6, 0, true);
+    localView.setUint16(8, 0, true);
+    localView.setUint16(10, dosTime(), true);
+    localView.setUint16(12, dosDate(), true);
+    localView.setUint32(14, crc, true);
+    localView.setUint32(18, data.length, true);
+    localView.setUint32(22, data.length, true);
+    localView.setUint16(26, nameBytes.length, true);
+    localHeader.set(nameBytes, 30);
+    localParts.push(localHeader, data);
+
+    const centralHeader = new Uint8Array(46 + nameBytes.length);
+    const centralView = new DataView(centralHeader.buffer);
+    centralView.setUint32(0, 0x02014b50, true);
+    centralView.setUint16(4, 20, true);
+    centralView.setUint16(6, 20, true);
+    centralView.setUint16(8, 0, true);
+    centralView.setUint16(10, 0, true);
+    centralView.setUint16(12, dosTime(), true);
+    centralView.setUint16(14, dosDate(), true);
+    centralView.setUint32(16, crc, true);
+    centralView.setUint32(20, data.length, true);
+    centralView.setUint32(24, data.length, true);
+    centralView.setUint16(28, nameBytes.length, true);
+    centralView.setUint32(42, offset, true);
+    centralHeader.set(nameBytes, 46);
+    centralParts.push(centralHeader);
+
+    offset += localHeader.length + data.length;
+  }
+
+  const centralSize = centralParts.reduce((sum, part) => sum + part.length, 0);
+  const end = new Uint8Array(22);
+  const endView = new DataView(end.buffer);
+  endView.setUint32(0, 0x06054b50, true);
+  endView.setUint16(8, files.size, true);
+  endView.setUint16(10, files.size, true);
+  endView.setUint32(12, centralSize, true);
+  endView.setUint32(16, offset, true);
+
+  return new Blob([...localParts, ...centralParts, end], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  });
+}
+
+const CRC_TABLE = (() => {
+  const table = new Uint32Array(256);
+  for (let i = 0; i < 256; i += 1) {
+    let c = i;
+    for (let k = 0; k < 8; k += 1) {
+      c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    }
+    table[i] = c >>> 0;
+  }
+  return table;
+})();
+
+function crc32(bytes) {
+  let crc = 0xffffffff;
+  for (const byte of bytes) {
+    crc = CRC_TABLE[(crc ^ byte) & 0xff] ^ (crc >>> 8);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function dosTime() {
+  const now = new Date();
+  return (now.getHours() << 11) | (now.getMinutes() << 5) | Math.floor(now.getSeconds() / 2);
+}
+
+function dosDate() {
+  const now = new Date();
+  return ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+}
+
+function sheetName(name) {
+  return String(name).replace(/[\\/?*\[\]:]/g, " ").slice(0, 31) || "Sheet";
+}
+
+function sanitizeFileName(name) {
+  return String(name)
+    .trim()
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 80) || "sie-analys";
+}
+
+function escapeXml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+function escapeHtml(value) {
+  return escapeXml(value);
+}
+
+function formatNumber(value) {
+  return new Intl.NumberFormat("sv-SE").format(value || 0);
+}
