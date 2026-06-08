@@ -320,6 +320,7 @@ function validateVouchers(parsed) {
 
   const voucherTotals = new Map();
   for (const tx of parsed.transactions) {
+    if (tx.type !== "TRANS") continue;
     const key = `${tx.series}|${tx.voucherNumber}|${tx.voucherDate}`;
     const current = voucherTotals.get(key) || { sum: 0, series: tx.series, number: tx.voucherNumber, date: tx.voucherDate };
     current.sum += typeof tx.amount === "number" ? tx.amount : 0;
@@ -561,6 +562,7 @@ function buildWorkbook(parsed, options) {
 function summarizeMonthly(transactions) {
   const map = new Map();
   for (const row of transactions) {
+    if (row.type !== "TRANS") continue;
     const date = row.transactionDate || row.voucherDate || "";
     const month = date ? date.slice(0, 7) : "Okänd";
     const key = `${month}|${row.account}|${row.accountName}`;
@@ -587,6 +589,7 @@ function summarizeMonthly(transactions) {
 function summarizeAccounts(transactions) {
   const map = new Map();
   for (const row of transactions) {
+    if (row.type !== "TRANS") continue;
     const key = `${row.account}|${row.accountName}`;
     const current = map.get(key) || {
       account: row.account,
