@@ -24,7 +24,7 @@ const metrics = {
   vouchers: document.querySelector("#metric-vouchers"),
   transactions: document.querySelector("#metric-transactions"),
   accounts: document.querySelector("#metric-accounts"),
-  warnings: document.querySelector("#metric-warnings")
+  observations: document.querySelector("#metric-observations")
 };
 const downloadSlot = document.querySelector("#download-slot");
 const downloadLink = document.querySelector("#download-link");
@@ -48,7 +48,7 @@ dropZone.addEventListener("drop", (event) => {
   if (file) {
     state.file = file;
     fileInput.files = event.dataTransfer.files;
-    setStatus("idle", file.name, "Filen är vald. Skapa arbetsbok när du är redo.");
+    setStatus("idle", file.name, t("status.fileSelected"));
   }
 });
 
@@ -56,7 +56,7 @@ fileInput.addEventListener("change", () => {
   const [file] = fileInput.files;
   state.file = file || null;
   if (file) {
-    setStatus("idle", file.name, "Filen är vald. Skapa arbetsbok när du är redo.");
+    setStatus("idle", file.name, t("status.fileSelected"));
   }
 });
 
@@ -73,25 +73,27 @@ form.addEventListener("submit", async (event) => {
   event.preventDefault();
   const file = state.file || fileInput.files[0];
   if (!file) {
-    setStatus("warning", "Ingen fil vald", "Välj en .se eller .sie-fil först.");
+    setStatus("warning", t("status.noFile"), t("status.noFileDesc"));
     return;
   }
 
   const submitButton = form.querySelector('button[type="submit"]');
   submitButton.disabled = true;
-  submitButton.textContent = "Skapar…";
+  submitButton.textContent = t("conv.creating");
 
   try {
-    setStatus("idle", "Läser fil", "Tolkar SIE-rader och skapar arbetsbok.");
+    setStatus("idle", t("status.reading"), t("status.readingDesc"));
     const bytes = new Uint8Array(await file.arrayBuffer());
     const text = decodeSie(bytes);
     const parsed = parseSie(text);
     const validated = validateVouchers(parsed);
     const filtered = applyPeriodFilter(validated, periodFilter.value);
+    const observations = analyzeDataQuality(filtered);
     const workbook = buildWorkbook(filtered, {
       sourceFile: file.name,
       includeRaw: includeRaw.checked,
-      includeEmpty: includeEmpty.checked
+      includeEmpty: includeEmpty.checked,
+      observations
     });
     const blob = await createXlsx(workbook);
     const safeName = sanitizeFileName(workbookName.value || file.name.replace(/\.[^.]+$/, ""));
@@ -100,29 +102,30 @@ form.addEventListener("submit", async (event) => {
     downloadLink.href = state.lastUrl;
     downloadLink.download = `${safeName}.xlsx`;
     downloadSlot.hidden = false;
-    downloadNote.textContent = `${formatNumber(blob.size)} byte skapade lokalt i webbläsaren.`;
-    updateMetrics(filtered);
+    downloadNote.textContent = t("status.downloadNote").replace("{size}", formatNumber(blob.size));
+    updateMetrics(filtered, observations.length);
     renderWarnings(filtered.warnings);
+    updateNudge(observations.length);
     setStatus(
       filtered.warnings.length ? "warning" : "success",
-      "Arbetsbok skapad",
-      `${formatNumber(filtered.transactions.length)} transaktioner redo för nedladdning.`
+      t("status.created"),
+      t("status.createdDesc").replace("{count}", formatNumber(filtered.transactions.length))
     );
   } catch (error) {
     console.error(error);
-    setStatus("warning", "Konverteringen stoppade", error.message || "Okänt fel.");
+    setStatus("warning", t("status.error"), error.message || t("status.unknownError"));
   } finally {
     submitButton.disabled = false;
-    submitButton.textContent = "Skapa .xlsx";
+    submitButton.textContent = t("conv.submit");
   }
 });
 
 function resetResults() {
-  updateMetrics({ vouchers: [], transactions: [], accounts: [], warnings: [] });
+  updateMetrics({ vouchers: [], transactions: [], accounts: [] }, 0);
   downloadSlot.hidden = true;
   warningsBox.hidden = true;
   warningsList.innerHTML = "";
-  setStatus("idle", "Redo för fil", "Sammanfattning visas när en SIE-fil har lästs in.");
+  setStatus("idle", t("result.readyTitle"), t("result.readyDesc"));
 }
 
 function setStatus(kind, title, body) {
@@ -135,11 +138,22 @@ function setStatus(kind, title, body) {
   `;
 }
 
-function updateMetrics(parsed) {
+function updateMetrics(parsed, observationCount) {
   metrics.vouchers.textContent = formatNumber(parsed.vouchers.length);
   metrics.transactions.textContent = formatNumber(parsed.transactions.length);
   metrics.accounts.textContent = formatNumber(parsed.accounts.length);
-  metrics.warnings.textContent = formatNumber(parsed.warnings.length);
+  metrics.observations.textContent = formatNumber(observationCount || 0);
+}
+
+function updateNudge(observationCount) {
+  const nudge = document.querySelector("#nudge-link");
+  if (!nudge) return;
+  if (observationCount > 0) {
+    const word = observationCount === 1 ? t("nudge.observation") : t("nudge.observations");
+    nudge.innerHTML = t("nudge.withObs").replace("{count}", observationCount).replace("{word}", word);
+  } else {
+    nudge.innerHTML = t("nudge.default");
+  }
 }
 
 function renderWarnings(warnings) {
@@ -152,7 +166,7 @@ function renderWarnings(warnings) {
   }
   if (warnings.length > visible.length) {
     const item = document.createElement("li");
-    item.textContent = `${warnings.length - visible.length} ytterligare kontrollpunkter finns i arket Warnings.`;
+    item.textContent = t("status.moreWarnings").replace("{count}", warnings.length - visible.length);
     warningsList.appendChild(item);
   }
   warningsBox.hidden = warnings.length === 0;
@@ -465,6 +479,93 @@ function applyPeriodFilter(parsed, filter) {
   };
 }
 
+function analyzeDataQuality(parsed) {
+  const observations = [];
+  const accountNames = new Map();
+  for (const a of parsed.accounts) {
+    accountNames.set(a.account, a.name);
+  }
+
+  const corrections = new Map();
+  const transOnly = new Map();
+  for (const tx of parsed.transactions) {
+    if (tx.type === "TRANS") {
+      transOnly.set(tx.account, (transOnly.get(tx.account) || 0) + 1);
+    } else {
+      corrections.set(tx.account, (corrections.get(tx.account) || 0) + 1);
+    }
+  }
+
+  for (const [account, corrCount] of corrections) {
+    const txCount = transOnly.get(account) || 0;
+    const total = txCount + corrCount;
+    const rate = Math.round((corrCount / total) * 100);
+    if (corrCount >= 3 || rate >= 20) {
+      observations.push([
+        "Korrigeringsfrekvens",
+        account,
+        accountNames.get(account) || "",
+        `${corrCount} korrigeringar av ${total} bokföringsrader (${rate}%)`,
+        "Hög andel rättelser kan tyda på avstämningsproblem."
+      ]);
+    }
+  }
+
+  const years = parsed.fiscalYears
+    .filter((y) => y.startDate && y.endDate)
+    .sort((a, b) => b.endDate.localeCompare(a.endDate));
+
+  if (years.length > 0) {
+    const fy = years[0];
+    const fyMonths = monthRange(fy.startDate.slice(0, 7), fy.endDate.slice(0, 7));
+    const innerMonths = fyMonths.length > 2 ? fyMonths.slice(1, -1) : [];
+
+    if (innerMonths.length >= 3) {
+      const accountMonths = new Map();
+      for (const tx of parsed.transactions) {
+        if (tx.type !== "TRANS") continue;
+        const month = (tx.transactionDate || tx.voucherDate || "").slice(0, 7);
+        if (!month) continue;
+        if (!accountMonths.has(tx.account)) accountMonths.set(tx.account, new Set());
+        accountMonths.get(tx.account).add(month);
+      }
+
+      for (const [account, months] of accountMonths) {
+        const activeInner = innerMonths.filter((m) => months.has(m));
+        if (activeInner.length < 4) continue;
+        const first = activeInner[0];
+        const last = activeInner[activeInner.length - 1];
+        const span = innerMonths.filter((m) => m >= first && m <= last);
+        const missing = span.filter((m) => !months.has(m));
+        if (missing.length > 0) {
+          observations.push([
+            "Inaktiva perioder",
+            account,
+            accountNames.get(account) || "",
+            `Saknar aktivitet ${missing.length} av ${span.length} förväntade månader`,
+            missing.join(", ")
+          ]);
+        }
+      }
+    }
+  }
+
+  observations.sort((a, b) => a[0].localeCompare(b[0], "sv") || a[1].localeCompare(b[1]));
+  return observations;
+}
+
+function monthRange(start, end) {
+  const months = [];
+  let [y, m] = start.split("-").map(Number);
+  const [ey, em] = end.split("-").map(Number);
+  while (y < ey || (y === ey && m <= em)) {
+    months.push(`${y}-${String(m).padStart(2, "0")}`);
+    m += 1;
+    if (m > 12) { m = 1; y += 1; }
+  }
+  return months;
+}
+
 function buildWorkbook(parsed, options) {
   const metadata = parsed.metadata.map((row) => [row.key, row.value, row.lineNumber]);
   metadata.unshift(["Källa", options.sourceFile, ""]);
@@ -537,11 +638,16 @@ function buildWorkbook(parsed, options) {
 
   const monthlySummary = summarizeMonthly(parsed.transactions);
   const accountSummary = summarizeAccounts(parsed.transactions);
+  const qualityRows = [
+    ["Kategori", "Konto", "Kontonamn", "Observation", "Detalj"],
+    ...(options.observations || [])
+  ];
   const warnings = [["Kontrollpunkt"], ...parsed.warnings.map((warning) => [warning])];
   const rawLines = [["Rad", "SIE-rad"], ...parsed.rawLines.map((row) => [row.lineNumber, row.raw])];
 
   const sheets = [
     ["Metadata", metadata],
+    ["Datakvalitet", qualityRows],
     ["FiscalYears", fiscalYears],
     ["Accounts", accounts],
     ["Balances", balances],

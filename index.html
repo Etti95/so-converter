@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="sv">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Gratis SIE till Excel | SIE-konverterare | R DataBlocks</title>
-    <meta name="description" content="Konvertera svenska SIE-filer till analysklara Excel-arbetsböcker gratis. Lokal konvertering med automatisk balansvalidering. Ett verktyg från R DataBlocks." />
+    <title>Free SIE to Excel | SIE Converter | R DataBlocks</title>
+    <meta name="description" content="Convert Swedish SIE files to analysis-ready Excel workbooks for free. Local conversion with automatic balance validation and data quality analysis. A tool by R DataBlocks." />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -16,51 +16,52 @@
           <small>SIE Converter</small>
         </span>
       </a>
-      <nav aria-label="Huvudnavigation">
-        <a href="#converter">Konvertera</a>
-        <a href="#use-cases">För vem</a>
-        <a href="#details">Format</a>
+      <nav aria-label="Main navigation">
+        <a href="#converter" data-i18n="nav.convert">Convert</a>
+        <a href="#use-cases" data-i18n="nav.forWhom">For whom</a>
+        <a href="#details" data-i18n="nav.format">Format</a>
         <a href="https://trust.rdatablocks.com/" class="nav-cta">Revenue Trust Layer</a>
+        <button class="lang-toggle" id="lang-toggle" type="button">EN</button>
       </nav>
     </header>
 
     <main id="top">
       <section class="hero" aria-labelledby="hero-title">
         <div class="hero-content">
-          <p class="eyebrow">Byggt för controllers, revisorer och CFO-team</p>
-          <h1 id="hero-title">SIE till analysklart Excel på sekunder</h1>
-          <p>
-            Ladda upp en <strong>.se</strong> eller <strong>.sie</strong>-fil och få en
-            strukturerad <strong>.xlsx</strong> med verifikationer, transaktioner,
-            kontoplan och automatisk balansvalidering. Din data lämnar aldrig webbläsaren.
+          <p class="eyebrow" data-i18n="hero.eyebrow">Built for controllers, auditors, and CFO teams</p>
+          <h1 id="hero-title" data-i18n="hero.title">SIE to analysis-ready Excel in seconds</h1>
+          <p data-i18n-html="hero.desc">
+            Upload a <strong>.se</strong> or <strong>.sie</strong> file and get a
+            structured <strong>.xlsx</strong> with vouchers, transactions,
+            chart of accounts, and automatic balance validation. Your data never leaves the browser.
           </p>
           <div class="hero-actions">
-            <a class="button primary" href="#converter">Konvertera nu</a>
-            <a class="button secondary" href="#details">Så fungerar det</a>
+            <a class="button primary" href="#converter" data-i18n="hero.cta">Convert now</a>
+            <a class="button secondary" href="#details" data-i18n="hero.secondary">How it works</a>
           </div>
         </div>
       </section>
 
-      <section class="trust-band" aria-label="Produktfördelar">
+      <section class="trust-band" aria-label="Product benefits">
         <div>
-          <strong>Lokal &amp; privat</strong>
-          <span>All konvertering sker i din webbläsare. Ingen data skickas till en server.</span>
+          <strong data-i18n="trust.local.title">Local & private</strong>
+          <span data-i18n="trust.local.desc">All conversion happens in your browser. No data is sent to a server.</span>
         </div>
         <div>
-          <strong>Analysredo format</strong>
-          <span>Separata ark för transaktioner, sammanfattningar, balansrader och metadata.</span>
+          <strong data-i18n="trust.format.title">Analysis-ready format</strong>
+          <span data-i18n="trust.format.desc">Separate sheets for transactions, summaries, balance rows, and metadata.</span>
         </div>
         <div>
-          <strong>Automatisk validering</strong>
-          <span>Debet/kredit-kontroll per verifikation. Obalanser flaggas direkt.</span>
+          <strong data-i18n="trust.quality.title">Data quality analysis</strong>
+          <span data-i18n="trust.quality.desc">Correction frequency, inactive periods, and balance validation. Anomalies are flagged automatically.</span>
         </div>
       </section>
 
       <section class="workspace" id="converter" aria-labelledby="converter-title">
         <div class="section-heading">
-          <p class="eyebrow">Konverterare</p>
-          <h2 id="converter-title">Ladda upp SIE och skapa arbetsbok</h2>
-          <p>Filen behandlas helt i webbläsaren. Inget laddas upp.</p>
+          <p class="eyebrow" data-i18n="conv.eyebrow">Converter</p>
+          <h2 id="converter-title" data-i18n="conv.title">Upload SIE and create workbook</h2>
+          <p data-i18n="conv.desc">The file is processed entirely in your browser. Nothing is uploaded.</p>
         </div>
 
         <div class="converter-layout">
@@ -68,35 +69,35 @@
             <label class="drop-zone" for="sie-file" id="drop-zone">
               <input id="sie-file" name="sie-file" type="file" accept=".se,.sie,.txt" />
               <span class="drop-icon" aria-hidden="true">SIE</span>
-              <strong>Välj eller dra in en SIE-fil</strong>
-              <small>.se, .sie eller textfil exporterad från bokföringssystem</small>
+              <strong data-i18n="conv.dropTitle">Select or drag a SIE file</strong>
+              <small data-i18n="conv.dropHint">.se, .sie, or text file exported from accounting software</small>
             </label>
 
-            <div class="options-grid" aria-label="Konverteringsinställningar">
+            <div class="options-grid" aria-label="Conversion settings">
               <label>
-                Filnamn
+                <span data-i18n="conv.fileName">File name</span>
                 <input id="workbook-name" type="text" value="sie-analys" maxlength="80" />
               </label>
               <label>
-                Periodfilter
+                <span data-i18n="conv.periodFilter">Period filter</span>
                 <select id="period-filter">
-                  <option value="all">Alla transaktioner</option>
-                  <option value="current-year">Senaste räkenskapsåret i filen</option>
+                  <option value="all" data-i18n="conv.periodAll">All transactions</option>
+                  <option value="current-year" data-i18n="conv.periodCurrent">Latest fiscal year in the file</option>
                 </select>
               </label>
               <label class="check-option">
                 <input id="include-raw" type="checkbox" checked />
-                <span>Inkludera råa SIE-rader</span>
+                <span data-i18n="conv.includeRaw">Include raw SIE lines</span>
               </label>
               <label class="check-option">
                 <input id="include-empty" type="checkbox" />
-                <span>Behåll tomma analysark</span>
+                <span data-i18n="conv.includeEmpty">Keep empty analysis sheets</span>
               </label>
             </div>
 
             <div class="action-row">
-              <button class="button primary" type="submit">Skapa .xlsx</button>
-              <button class="button ghost" type="button" id="reset-button">Rensa</button>
+              <button class="button primary" type="submit" data-i18n="conv.submit">Create .xlsx</button>
+              <button class="button ghost" type="button" id="reset-button" data-i18n="conv.clear">Clear</button>
             </div>
           </form>
 
@@ -104,38 +105,38 @@
             <div class="status-block" id="status-block">
               <span class="status-dot idle"></span>
               <div>
-                <strong>Redo för fil</strong>
-                <p>Sammanfattning visas när en SIE-fil har lästs in.</p>
+                <strong data-i18n="result.readyTitle">Ready for file</strong>
+                <p data-i18n="result.readyDesc">Summary will appear once a SIE file is loaded.</p>
               </div>
             </div>
 
             <dl class="metric-grid">
               <div>
-                <dt>Verifikationer</dt>
+                <dt data-i18n="result.vouchers">Vouchers</dt>
                 <dd id="metric-vouchers">0</dd>
               </div>
               <div>
-                <dt>Transaktioner</dt>
+                <dt data-i18n="result.transactions">Transactions</dt>
                 <dd id="metric-transactions">0</dd>
               </div>
               <div>
-                <dt>Konton</dt>
+                <dt data-i18n="result.accounts">Accounts</dt>
                 <dd id="metric-accounts">0</dd>
               </div>
               <div>
-                <dt>Avvikelser</dt>
-                <dd id="metric-warnings">0</dd>
+                <dt data-i18n="result.observations">Observations</dt>
+                <dd id="metric-observations">0</dd>
               </div>
             </dl>
 
             <div class="download-slot" id="download-slot" hidden>
-              <a class="button primary full" id="download-link" href="#" download>Ladda ner arbetsbok</a>
+              <a class="button primary full" id="download-link" href="#" download data-i18n="result.download">Download workbook</a>
               <small id="download-note"></small>
-              <a class="nudge-link" href="https://trust.rdatablocks.com/" target="_blank" rel="noopener">Stämmer era siffror i Stripe, CRM och bokföring överens? &rarr;</a>
+              <a class="nudge-link" id="nudge-link" href="https://trust.rdatablocks.com/" target="_blank" rel="noopener">Do your numbers in Stripe, CRM, and accounting match? →</a>
             </div>
 
             <div class="warnings" id="warnings" hidden>
-              <strong>Kontrollpunkter</strong>
+              <strong data-i18n="result.warnings">Checkpoints</strong>
               <ul id="warnings-list"></ul>
             </div>
           </aside>
@@ -144,91 +145,95 @@
 
       <section class="use-cases" id="use-cases" aria-labelledby="use-cases-title">
         <div class="section-heading">
-          <p class="eyebrow">Målgrupp</p>
-          <h2 id="use-cases-title">Byggt för de som analyserar, inte bokför</h2>
-          <p>SIE Converter riktar sig till beslutsfattare som tar emot SIE-filer men arbetar i Excel.</p>
+          <p class="eyebrow" data-i18n="uc.eyebrow">Target audience</p>
+          <h2 id="use-cases-title" data-i18n="uc.title">Built for those who analyze, not those who book</h2>
+          <p data-i18n="uc.desc">SIE Converter targets decision-makers who receive SIE files but work in Excel.</p>
         </div>
 
         <div class="use-cases-grid">
           <article>
-            <strong>Controllers</strong>
-            <span>Konsolidera SIE-data från dotterbolag och externa byråer i egna Excel-modeller.</span>
+            <strong data-i18n="uc.controllers.title">Controllers</strong>
+            <span data-i18n="uc.controllers.desc">Consolidate SIE data from subsidiaries and external firms into your own Excel models.</span>
           </article>
           <article>
-            <strong>Revisorer</strong>
-            <span>Omvandla klienters SIE-exporter till granskningsbart format med automatisk balansvalidering.</span>
+            <strong data-i18n="uc.auditors.title">Auditors</strong>
+            <span data-i18n="uc.auditors.desc">Convert client SIE exports to audit-ready format with automatic balance validation.</span>
           </article>
           <article>
-            <strong>CFO &amp; styrelse</strong>
-            <span>Skapa finansiella översikter och styrelseunderlag direkt från bokföringssystemets utdata.</span>
+            <strong data-i18n="uc.cfo.title">CFO & board</strong>
+            <span data-i18n="uc.cfo.desc">Create financial overviews and board materials directly from accounting system output.</span>
           </article>
           <article>
-            <strong>M&amp;A-rådgivare</strong>
-            <span>Snabb due diligence. Analysera transaktionshistorik utan tillgång till målbolagets system.</span>
+            <strong data-i18n="uc.ma.title">M&A advisors</strong>
+            <span data-i18n="uc.ma.desc">Quick due diligence. Analyze transaction history without access to the target company's systems.</span>
           </article>
         </div>
       </section>
 
       <section class="details" id="details" aria-labelledby="details-title">
         <div class="section-heading">
-          <p class="eyebrow">Arbetsbokformat</p>
-          <h2 id="details-title">Arken som skapas</h2>
+          <p class="eyebrow" data-i18n="details.eyebrow">Workbook format</p>
+          <h2 id="details-title" data-i18n="details.title">Sheets included</h2>
         </div>
 
         <div class="sheet-list">
           <div>
-            <strong>Metadata</strong>
-            <span>Företagsnamn, organisationsnummer, program, format och räkenskapsår.</span>
+            <strong data-i18n="sheet.metadata.title">Metadata</strong>
+            <span data-i18n="sheet.metadata.desc">Company name, organization number, program, format, and fiscal year.</span>
           </div>
           <div>
-            <strong>Kontoplan</strong>
-            <span>Alla #KONTO-rader med kontonummer och kontonamn.</span>
+            <strong data-i18n="sheet.quality.title">Data quality</strong>
+            <span data-i18n="sheet.quality.desc">Correction frequency per account and inactive periods. Flags patterns that may indicate reconciliation issues.</span>
           </div>
           <div>
-            <strong>Verifikationer</strong>
-            <span>Serie, verifikationsnummer, datum, text och registreringsinformation.</span>
+            <strong data-i18n="sheet.accounts.title">Chart of accounts</strong>
+            <span data-i18n="sheet.accounts.desc">All #KONTO lines with account number and account name.</span>
           </div>
           <div>
-            <strong>Transaktioner</strong>
-            <span>Radnivå med konto, belopp, dimensioner, datum och verifikation.</span>
+            <strong data-i18n="sheet.vouchers.title">Vouchers</strong>
+            <span data-i18n="sheet.vouchers.desc">Series, voucher number, date, text, and registration information.</span>
           </div>
           <div>
-            <strong>Månadssummering</strong>
-            <span>Belopp summerade per månad och konto.</span>
+            <strong data-i18n="sheet.transactions.title">Transactions</strong>
+            <span data-i18n="sheet.transactions.desc">Row-level with account, amount, dimensions, date, and voucher.</span>
           </div>
           <div>
-            <strong>Kontosummering</strong>
-            <span>Debet, kredit, nettobelopp och transaktionsantal per konto.</span>
+            <strong data-i18n="sheet.monthly.title">Monthly summary</strong>
+            <span data-i18n="sheet.monthly.desc">Amounts summarized by month and account.</span>
+          </div>
+          <div>
+            <strong data-i18n="sheet.accountSum.title">Account summary</strong>
+            <span data-i18n="sheet.accountSum.desc">Debit, credit, net amount, and transaction count per account.</span>
           </div>
         </div>
       </section>
 
       <section class="bridge-section" id="trust" aria-labelledby="bridge-title">
         <div class="section-heading">
-          <p class="eyebrow">Från R DataBlocks</p>
-          <h2 id="bridge-title">Din bokföring är ren. Stämmer resten?</h2>
-          <p>
-            De flesta växande bolag har siffror i bokföringen, Stripe, CRM och
-            BI-dashboards som inte stämmer överens. Revenue Trust Layer identifierar
-            avvikelserna innan de blir dyra, eller innan AI-automatisering förstärker dem.
+          <p class="eyebrow" data-i18n="bridge.eyebrow">From R DataBlocks</p>
+          <h2 id="bridge-title" data-i18n="bridge.title">Your books are clean. Does the rest add up?</h2>
+          <p data-i18n="bridge.desc">
+            Most growing companies have numbers in their books, Stripe, CRM, and
+            BI dashboards that don't match. Revenue Trust Layer identifies
+            discrepancies before they become costly, or before AI automation amplifies them.
           </p>
           <div class="bridge-actions">
-            <a class="button primary" href="https://trust.rdatablocks.com/" target="_blank" rel="noopener">Boka en Revenue Trust Audit</a>
-            <a class="button secondary" href="https://trust.rdatablocks.com/" target="_blank" rel="noopener">Läs mer</a>
+            <a class="button primary" href="https://trust.rdatablocks.com/" target="_blank" rel="noopener" data-i18n="bridge.cta">Book a Revenue Trust Audit</a>
+            <a class="button secondary" href="https://trust.rdatablocks.com/" target="_blank" rel="noopener" data-i18n="bridge.secondary">Learn more</a>
           </div>
         </div>
         <div class="bridge-features">
           <div>
-            <strong>Diagnos på 10 dagar</strong>
-            <span>Vi kartlägger avvikelser mellan era system och levererar en Revenue Trust Score.</span>
+            <strong data-i18n="bridge.diag.title">Diagnosis in 10 days</strong>
+            <span data-i18n="bridge.diag.desc">We map discrepancies between your systems and deliver a Revenue Trust Score.</span>
           </div>
           <div>
-            <strong>Reconciliation-dashboards</strong>
-            <span>Realtidsöversikt som visar var siffrorna går isär. Stripe mot bokföring, CRM mot fakturering.</span>
+            <strong data-i18n="bridge.recon.title">Reconciliation dashboards</strong>
+            <span data-i18n="bridge.recon.desc">Real-time overview showing where numbers diverge. Stripe vs. books, CRM vs. invoicing.</span>
           </div>
           <div>
-            <strong>AI-redo data</strong>
-            <span>Säkra datakvaliteten innan ni automatiserar. AI förstärker befintliga problem, den löser dem inte.</span>
+            <strong data-i18n="bridge.ai.title">AI-ready data</strong>
+            <span data-i18n="bridge.ai.desc">Secure data quality before you automate. AI amplifies existing problems, it doesn't solve them.</span>
           </div>
         </div>
       </section>
@@ -236,9 +241,10 @@
 
     <footer class="site-footer">
       <span>&copy; 2025 <a href="https://trust.rdatablocks.com/">R DataBlocks</a></span>
-      <span>Gratis SIE-verktyg &middot; <a href="https://trust.rdatablocks.com/">Revenue Trust Layer</a></span>
+      <span data-i18n-html="footer.tools">Free SIE tool &middot; <a href="https://trust.rdatablocks.com/">Revenue Trust Layer</a></span>
     </footer>
 
+    <script src="i18n.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

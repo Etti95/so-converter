@@ -109,6 +109,24 @@ nav a:focus-visible {
   font-weight: 700;
 }
 
+.lang-toggle {
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  transition: color 160ms ease, border-color 160ms ease;
+}
+
+.lang-toggle:hover {
+  color: var(--brand-dark);
+  border-color: var(--brand);
+}
+
 .hero {
   padding: clamp(48px, 8vw, 96px) clamp(18px, 4vw, 56px);
   background:
