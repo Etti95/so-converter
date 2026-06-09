@@ -646,8 +646,8 @@ function buildWorkbook(parsed, options) {
   const rawLines = [["Rad", "SIE-rad"], ...parsed.rawLines.map((row) => [row.lineNumber, row.raw])];
 
   const sheets = [
-    ["Metadata", metadata],
     ["Datakvalitet", qualityRows],
+    ["Company info", metadata],
     ["FiscalYears", fiscalYears],
     ["Accounts", accounts],
     ["Balances", balances],
